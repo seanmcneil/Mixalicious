@@ -1,0 +1,1 @@
+protocol AudioProcessingProtocol: CreateCompositionProtocol, WriteAssetProtocol {}
