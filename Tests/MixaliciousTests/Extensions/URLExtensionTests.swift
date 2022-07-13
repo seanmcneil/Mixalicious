@@ -1,6 +1,7 @@
-@testable import Mixalicious
 
 import XCTest
+
+@testable import Mixalicious
 
 final class URLExtensionTests: XCTestCase {
     private let documentDirectory = FileManager.default.urls(for: .documentDirectory,

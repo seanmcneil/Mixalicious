@@ -1,36 +1,30 @@
 import AVFoundation
-import Combine
 
 protocol WriteAssetProtocol: AnyObject {
-    var cancelleables: Set<AnyCancellable> { get set }
-
     func write(asset: AVAsset,
                mediaType: MediaType,
                progress: Progress,
-               timeRange: CMTimeRange?) -> AnyPublisher<URL, MixaliciousError>
+               timeRange: CMTimeRange?) async throws -> URL
 }
 
 extension WriteAssetProtocol {
     func write(asset: AVAsset,
                mediaType: MediaType,
                progress: Progress,
-               timeRange: CMTimeRange? = nil) -> AnyPublisher<URL, MixaliciousError> {
+               timeRange: CMTimeRange? = nil) async throws -> URL {
         // It is possible some assets have no tracks
         guard !asset.tracks.isEmpty else {
-            return Fail(error: .assetTrackIsEmpty)
-                .eraseToAnyPublisher()
+            throw (MixaliciousError.assetTrackIsEmpty)
         }
 
         guard let session = AVAssetExportSession(asset: asset,
                                                  presetName: mediaType.presetName)
         else {
-            return Fail(error: .failedToCreateSession)
-                .eraseToAnyPublisher()
+            throw (MixaliciousError.failedToCreateSession)
         }
 
         guard let outputURL = URL(mediaType: mediaType) else {
-            return Fail(error: .failedToCreateFile)
-                .eraseToAnyPublisher()
+            throw (MixaliciousError.failedToCreateFile)
         }
 
         if let timeRange = timeRange {
@@ -41,11 +35,8 @@ extension WriteAssetProtocol {
         session.outputURL = outputURL
         session.outputFileType = mediaType.fileType
 
-        return sessionWriter.export(session: session,
-                                    mediaType: mediaType,
-                                    outputURL: outputURL,
-                                    progress: progress)
-            .subscribe(on: DispatchQueue.global(qos: .utility), options: nil)
-            .eraseToAnyPublisher()
+        return try await sessionWriter.export(session: session,
+                                              outputURL: outputURL,
+                                              progress: progress)
     }
 }

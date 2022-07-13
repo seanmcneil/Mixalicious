@@ -1,181 +1,105 @@
-@testable import Mixalicious
 
 import AVFoundation
-import Combine
 import XCTest
 
-final class SessionWriterTests: XCTestCase {
+@testable import Mixalicious
+
+final class SessionWriterTests: XCTestCase, TestAssertions {
+    private var progress: Progress!
+
+    var fractionCompleted: Double {
+        progress.fractionCompleted
+    }
+
+    override func tearDown() async throws {
+        removeFiles()
+    }
+
+    override func setUp() async throws {
+        progress = Progress(totalUnitCount: 1000)
+        session = MockExportSession()
+    }
+
     private let sessionWriter = SessionWriter()
 
-    private var cancelleables = Set<AnyCancellable>()
+    private let outputURL = URL(mediaType: .audio)!
 
-    func testCancelledError() {
-        let session = MockExportSession()
+    private var session: MockExportSession!
+}
+
+extension SessionWriterTests {
+    func testCancelledError() async throws {
         session.mockStatus = .cancelled
-        let mediaType = MediaType.audio
-        let outputURL = URL(mediaType: mediaType)!
-        let progress = Progress()
 
-        let expect = expectation(description: "expect")
-
-        sessionWriter.export(session: session,
-                             mediaType: mediaType,
-                             outputURL: outputURL,
-                             progress: progress)
-            .sink(receiveCompletion: { subscribers in
-                switch subscribers {
-                case let .failure(error):
-                    switch error {
-                    case .exportCancelled:
-                        expect.fulfill()
-
-                    default:
-                        XCTFail(ErrorMessage.wrong)
-                    }
-                case .finished:
-                    XCTFail(ErrorMessage.expected)
-                }
-            }) { _ in
-                XCTFail(ErrorMessage.expected)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
+        do {
+            _ = try await sessionWriter.export(session: session,
+                                               outputURL: outputURL,
+                                               progress: progress)
+            assertExpectedError()
+        } catch let error as MixaliciousError {
+            assert(error: error,
+                   expected: .exportCancelled,
+                   isCompletedProgress: false)
+        }
     }
 
-    func testExportingError() {
-        let session = MockExportSession()
+    func testExportingError() async throws {
         session.mockStatus = .exporting
-        let mediaType = MediaType.audio
-        let outputURL = URL(mediaType: mediaType)!
-        let progress = Progress()
 
-        let expect = expectation(description: "expect")
-
-        sessionWriter.export(session: session,
-                             mediaType: mediaType,
-                             outputURL: outputURL,
-                             progress: progress)
-            .sink(receiveCompletion: { subscribers in
-                switch subscribers {
-                case let .failure(error):
-                    switch error {
-                    case .exportExporting:
-                        expect.fulfill()
-
-                    default:
-                        XCTFail(ErrorMessage.wrong)
-                    }
-                case .finished:
-                    XCTFail(ErrorMessage.expected)
-                }
-            }) { _ in
-                XCTFail(ErrorMessage.expected)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
+        do {
+            _ = try await sessionWriter.export(session: session,
+                                               outputURL: outputURL,
+                                               progress: progress)
+            assertExpectedError()
+        } catch let error as MixaliciousError {
+            assert(error: error,
+                   expected: .exportExporting,
+                   isCompletedProgress: false)
+        }
     }
 
-    func testFailedError() {
-        let session = MockExportSession()
+    func testFailedError() async throws {
         session.mockStatus = .failed
-        let mediaType = MediaType.audio
-        let outputURL = URL(mediaType: mediaType)!
-        let progress = Progress()
 
-        let expect = expectation(description: "expect")
-
-        sessionWriter.export(session: session,
-                             mediaType: mediaType,
-                             outputURL: outputURL,
-                             progress: progress)
-            .sink(receiveCompletion: { subscribers in
-                switch subscribers {
-                case let .failure(error):
-                    switch error {
-                    case .exportFailed:
-                        expect.fulfill()
-
-                    default:
-                        XCTFail(ErrorMessage.wrong)
-                    }
-                case .finished:
-                    XCTFail(ErrorMessage.expected)
-                }
-            }) { _ in
-                XCTFail(ErrorMessage.expected)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
+        do {
+            _ = try await sessionWriter.export(session: session,
+                                               outputURL: outputURL,
+                                               progress: progress)
+            assertExpectedError()
+        } catch let error as MixaliciousError {
+            assert(error: error,
+                   expected: .exportFailed,
+                   isCompletedProgress: false)
+        }
     }
 
-    func testUnknownError() {
-        let session = MockExportSession()
+    func testUnknownError() async throws {
         session.mockStatus = .unknown
-        let mediaType = MediaType.audio
-        let outputURL = URL(mediaType: mediaType)!
-        let progress = Progress()
 
-        let expect = expectation(description: "expect")
-
-        sessionWriter.export(session: session,
-                             mediaType: mediaType,
-                             outputURL: outputURL,
-                             progress: progress)
-            .sink(receiveCompletion: { subscribers in
-                switch subscribers {
-                case let .failure(error):
-                    switch error {
-                    case .exportUnknown:
-                        expect.fulfill()
-
-                    default:
-                        XCTFail(ErrorMessage.wrong)
-                    }
-                case .finished:
-                    XCTFail(ErrorMessage.expected)
-                }
-            }) { _ in
-                XCTFail(ErrorMessage.expected)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
+        do {
+            _ = try await sessionWriter.export(session: session,
+                                               outputURL: outputURL,
+                                               progress: progress)
+            assertExpectedError()
+        } catch let error as MixaliciousError {
+            assert(error: error,
+                   expected: .exportUnknown,
+                   isCompletedProgress: false)
+        }
     }
 
-    func testWaitingError() {
-        let session = MockExportSession()
+    func testWaitingError() async throws {
         session.mockStatus = .waiting
-        let mediaType = MediaType.audio
-        let outputURL = URL(mediaType: mediaType)!
-        let progress = Progress()
 
-        let expect = expectation(description: "expect")
-
-        sessionWriter.export(session: session,
-                             mediaType: mediaType,
-                             outputURL: outputURL,
-                             progress: progress)
-            .sink(receiveCompletion: { subscribers in
-                switch subscribers {
-                case let .failure(error):
-                    switch error {
-                    case .exportWaiting:
-                        expect.fulfill()
-
-                    default:
-                        XCTFail(ErrorMessage.wrong)
-                    }
-                case .finished:
-                    XCTFail(ErrorMessage.expected)
-                }
-            }) { _ in
-                XCTFail(ErrorMessage.expected)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
+        do {
+            _ = try await sessionWriter.export(session: session,
+                                               outputURL: outputURL,
+                                               progress: progress)
+            assertExpectedError()
+        } catch let error as MixaliciousError {
+            assert(error: error,
+                   expected: .exportWaiting,
+                   isCompletedProgress: false)
+        }
     }
 }

@@ -1,418 +1,160 @@
-@testable import Mixalicious
-
 import AVFoundation
-import Combine
 import XCTest
 
-final class MixaliciousAudioTests: XCTestCase {
-    private var cancelleables = Set<AnyCancellable>()
+@testable import Mixalicious
 
+final class MixaliciousAudioTests: XCTestCase, TestAssertions {
     private let mixalicious = Mixalicious()
 
+    var fractionCompleted: Double {
+        mixalicious.completionPercent
+    }
+
     override func tearDown() {
-        URL.removeAllFiles(mediaType: .audio)
-        URL.removeAllFiles(mediaType: .video)
+        removeFiles()
+    }
+}
+
+// MARK: Insertion tests
+
+extension MixaliciousAudioTests {
+    func testInsertAudioAtVideoStart() async throws {
+        let audio = try loadAsset(testData: .audio)
+        let video = try loadAsset(testData: .videoWithAudio)
+
+        assertInitialProgress()
+        let url = try await mixalicious.insert(audio: audio,
+                                               target: video)
+        assert(url: url, pathExtension: .mp4)
+        assert(url: url, trackCount: multipleAssetTracks)
+        assertCompletedProgress()
     }
 
-    func testInsertAudioAtVideoStart() {
-        let expect = expectation(description: "expect")
+    func testInsertAudioAtMuteVideoStart() async throws {
+        let audio = try loadAsset(testData: .audio)
+        let video = try loadAsset(testData: .videoNoAudio)
 
-        guard let videoURL = loadTestAsset(name: FileName.video) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        guard let audioURL = loadTestAsset(name: FileName.audio) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let audio = AVURLAsset(url: audioURL)
-        let video = AVURLAsset(url: videoURL)
-
-        XCTAssertEqual(mixalicious.completionPercent,
-                       0.0,
-                       accuracy: 0.01)
-        mixalicious.insert(audio: audio,
-                           target: video)
-            .sink(receiveCompletion: { subscribers in
-                switch subscribers {
-                case .failure:
-                    XCTFail(ErrorMessage.unexpected)
-
-                case .finished:
-                    expect.fulfill()
-                }
-            }) { [unowned self] url in
-                XCTAssertEqual(url.pathExtension, "mp4")
-                let asset = AVURLAsset(url: url)
-                XCTAssertEqual(asset.tracks.count, 3)
-                XCTAssertEqual(self.mixalicious.completionPercent,
-                               1.0,
-                               accuracy: 0.01)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
+        assertInitialProgress()
+        let url = try await mixalicious.insert(audio: audio,
+                                               target: video)
+        assert(url: url, pathExtension: .mp4)
+        assert(url: url, trackCount: 2)
+        assertCompletedProgress()
     }
 
-    // This test inserts audio at the start of a video that has no audio track
-    func testInsertAudioAtMuteVideoStart() {
-        let expect = expectation(description: "expect")
+    func testInsertAudioIntoAudio() async throws {
+        let audio = try loadAsset(testData: .audio)
+        let audioTarget = try loadAsset(testData: .audio)
 
-        guard let videoURL = loadTestAsset(name: FileName.videoOnly) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        guard let audioURL = loadTestAsset(name: FileName.audio) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let audio = AVURLAsset(url: audioURL)
-        let video = AVURLAsset(url: videoURL)
-
-        XCTAssertEqual(mixalicious.completionPercent,
-                       0.0,
-                       accuracy: 0.01)
-        mixalicious.insert(audio: audio,
-                           target: video)
-            .sink(receiveCompletion: { subscribers in
-                switch subscribers {
-                case .failure:
-                    XCTFail(ErrorMessage.unexpected)
-
-                case .finished:
-                    expect.fulfill()
-                }
-            }) { [unowned self] url in
-                XCTAssertEqual(url.pathExtension, "mp4")
-                let asset = AVURLAsset(url: url)
-                XCTAssertEqual(asset.tracks.count, 2)
-                XCTAssertEqual(self.mixalicious.completionPercent,
-                               1.0,
-                               accuracy: 0.01)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
+        assertInitialProgress()
+        let url = try await mixalicious.insert(audio: audio,
+                                               target: audioTarget)
+        assert(url: url, pathExtension: .m4a)
+        assert(url: url, trackCount: 1)
+        assertCompletedProgress()
     }
 
-    func testInsertAudioIntoAudio() {
-        let expect = expectation(description: "expect")
+    func testInsertWithWrongAsset() async throws {
+        let video = try loadAsset(testData: .videoWithAudio)
 
-        guard let audioURL = loadTestAsset(name: FileName.audio) else {
-            fatalError(ErrorMessage.failedToLoad)
+        assertInitialProgress()
+        do {
+            _ = try await mixalicious.insert(audio: video,
+                                             target: video)
+        } catch let error as MixaliciousError {
+            assert(error: error, expected: .audioTrackNotFound)
         }
-
-        let audio = AVURLAsset(url: audioURL)
-        let audioTarget = AVURLAsset(url: audioURL)
-
-        XCTAssertEqual(mixalicious.completionPercent,
-                       0.0,
-                       accuracy: 0.01)
-        mixalicious.insert(audio: audio,
-                           target: audioTarget)
-            .sink(receiveCompletion: { subscribers in
-                switch subscribers {
-                case .failure:
-                    XCTFail(ErrorMessage.unexpected)
-
-                case .finished:
-                    expect.fulfill()
-                }
-            }) { [unowned self] url in
-                XCTAssertEqual(url.pathExtension, "m4a")
-                let asset = AVURLAsset(url: url)
-                XCTAssertEqual(asset.tracks.count, 1)
-                XCTAssertEqual(self.mixalicious.completionPercent,
-                               1.0,
-                               accuracy: 0.01)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
     }
 
-    func testInsertWithWrongAsset() {
-        let expect = expectation(description: "expect")
-
-        guard let videoURL = loadTestAsset(name: FileName.videoOnly) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let video = AVURLAsset(url: videoURL)
-
-        XCTAssertEqual(mixalicious.completionPercent,
-                       0.0,
-                       accuracy: 0.01)
-        mixalicious.insert(audio: video,
-                           target: video)
-            .sink(receiveCompletion: { [unowned self] subscribers in
-                switch subscribers {
-                case let .failure(error):
-                    switch error {
-                    case .audioTrackNotFound:
-                        XCTAssertEqual(self.mixalicious.completionPercent,
-                                       0.0,
-                                       accuracy: 0.01)
-                        expect.fulfill()
-
-                    default:
-                        XCTFail(ErrorMessage.wrong)
-                    }
-
-                case .finished:
-                    XCTFail(ErrorMessage.expected)
-                }
-            }) { _ in
-                XCTFail(ErrorMessage.expected)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
-    }
-
-    func testInsertWithUnknownAsset() {
-        let expect = expectation(description: "expect")
-
+    func testInsertWithUnknownAsset() async throws {
         let audio = AVMutableComposition()
         let target = AVMutableComposition()
 
-        XCTAssertEqual(mixalicious.completionPercent,
-                       0.0,
-                       accuracy: 0.01)
-        mixalicious.insert(audio: audio,
-                           target: target)
-            .sink(receiveCompletion: { [unowned self] subscribers in
-                switch subscribers {
-                case let .failure(error):
-                    switch error {
-                    case .unknownFileType:
-                        XCTAssertEqual(self.mixalicious.completionPercent,
-                                       0.0,
-                                       accuracy: 0.01)
-                        expect.fulfill()
+        assertInitialProgress()
 
-                    default:
-                        XCTFail(ErrorMessage.wrong)
-                    }
-
-                case .finished:
-                    XCTFail(ErrorMessage.expected)
-                }
-            }) { _ in
-                XCTFail(ErrorMessage.expected)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
+        do {
+            _ = try await mixalicious.insert(audio: audio,
+                                             target: target)
+        } catch let error as MixaliciousError {
+            assert(error: error, expected: .unknownFileType)
+        }
     }
 
-    func testInsertWithNegativeInsertionTime() {
-        let expect = expectation(description: "expect")
-
-        guard let videoURL = loadTestAsset(name: FileName.videoOnly) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        guard let audioURL = loadTestAsset(name: FileName.audio) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let audio = AVURLAsset(url: audioURL)
-        let video = AVURLAsset(url: videoURL)
+    func testInsertWithNegativeInsertionTime() async throws {
+        let audio = try loadAsset(testData: .audio)
+        let video = try loadAsset(testData: .videoWithAudio)
         let insertionTime = CMTime(value: -1, timescale: 600)
 
-        XCTAssertEqual(mixalicious.completionPercent,
-                       0.0,
-                       accuracy: 0.01)
-        mixalicious.insert(audio: audio,
-                           target: video,
-                           insertionTime: insertionTime)
-            .sink(receiveCompletion: { [unowned self] subscribers in
-                switch subscribers {
-                case let .failure(error):
-                    switch error {
-                    case .invalidInsertionTime:
-                        XCTAssertEqual(self.mixalicious.completionPercent,
-                                       0.0,
-                                       accuracy: 0.01)
-                        expect.fulfill()
-
-                    default:
-                        XCTFail(ErrorMessage.wrong)
-                    }
-
-                case .finished:
-                    XCTFail(ErrorMessage.expected)
-                }
-            }) { _ in
-                XCTFail(ErrorMessage.expected)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
+        assertInitialProgress()
+        do {
+            _ = try await mixalicious.insert(audio: audio,
+                                             target: video,
+                                             insertionTime: insertionTime)
+        } catch let error as MixaliciousError {
+            assert(error: error, expected: .invalidInsertionTime)
+        }
     }
 
-    func testInsertWithExtendedInsertionTime() {
-        let expect = expectation(description: "expect")
+    func testInsertWithExtendedInsertionTime() async throws {
+        let audio = try loadAsset(testData: .audio)
+        let video = try loadAsset(testData: .videoWithAudio)
+        let insertionTime = CMTimeAdd(video.duration,
+                                      CMTime(value: 1, timescale: video.duration.timescale))
 
-        guard let videoURL = loadTestAsset(name: FileName.videoOnly) else {
-            fatalError(ErrorMessage.failedToLoad)
+        assertInitialProgress()
+        do {
+            _ = try await mixalicious.insert(audio: audio,
+                                             target: video,
+                                             insertionTime: insertionTime)
+        } catch let error as MixaliciousError {
+            assert(error: error, expected: .invalidInsertionTime)
         }
-
-        guard let audioURL = loadTestAsset(name: FileName.audio) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let audio = AVURLAsset(url: audioURL)
-        let video = AVURLAsset(url: videoURL)
-        let insertionTime = CMTimeAdd(video.duration, CMTime(value: 1, timescale: video.duration.timescale))
-
-        XCTAssertEqual(mixalicious.completionPercent,
-                       0.0,
-                       accuracy: 0.01)
-        mixalicious.insert(audio: audio,
-                           target: video,
-                           insertionTime: insertionTime)
-            .sink(receiveCompletion: { [unowned self] subscribers in
-                switch subscribers {
-                case let .failure(error):
-                    switch error {
-                    case .invalidInsertionTime:
-                        XCTAssertEqual(self.mixalicious.completionPercent,
-                                       0.0,
-                                       accuracy: 0.01)
-                        expect.fulfill()
-
-                    default:
-                        XCTFail(ErrorMessage.wrong)
-                    }
-
-                case .finished:
-                    XCTFail(ErrorMessage.expected)
-                }
-            }) { _ in
-                XCTFail(ErrorMessage.expected)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
     }
+}
 
-    // MARK: Combine audio
+// MARK: Combine audio
 
-    func testCombineAudio() {
-        let expect = expectation(description: "expect")
-        guard let videoURL = loadTestAsset(name: FileName.video) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        guard let audioURL = loadTestAsset(name: FileName.audio) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let audio = AVURLAsset(url: audioURL)
-        let video = AVURLAsset(url: videoURL)
+extension MixaliciousAudioTests {
+    func testLayerAudioIntoVideo() async throws {
+        let audio = try loadAsset(testData: .audio)
+        let video = try loadAsset(testData: .videoWithAudio)
         let timescale = video.duration.timescale
         let value = Int64(timescale / Int32(2))
         let insertionTime: CMTime = CMTimeMake(value: value,
                                                timescale: timescale)
 
-        XCTAssertEqual(mixalicious.completionPercent,
-                       0.0,
-                       accuracy: 0.01)
-        mixalicious.insert(audio: audio,
-                           target: video,
-                           insertionTime: insertionTime)
-            .sink(receiveCompletion: { subscribers in
-                switch subscribers {
-                case .failure:
-                    XCTFail(ErrorMessage.unexpected)
+        assertInitialProgress()
+        let url = try await mixalicious.insert(audio: audio,
+                                               target: video,
+                                               insertionTime: insertionTime)
+        assert(url: url, pathExtension: .mp4)
+        assert(url: url, trackCount: multipleAssetTracks)
+        assertCompletedProgress()
+    }
+}
 
-                case .finished:
-                    expect.fulfill()
-                }
-            }) { [unowned self] url in
-                XCTAssertEqual(url.pathExtension, "mp4")
-                let asset = AVURLAsset(url: url)
-                XCTAssertEqual(asset.tracks.count, 3)
-                XCTAssertEqual(self.mixalicious.completionPercent,
-                               1.0,
-                               accuracy: 0.01)
-            }
-            .store(in: &cancelleables)
+// MARK: Extract audio
 
-        waitForExpectations(timeout: timeout, handler: nil)
+extension MixaliciousAudioTests {
+    func testExtractAudio() async throws {
+        let video = try loadAsset(testData: .videoWithAudio)
+
+        assertInitialProgress()
+        let url = try await mixalicious.extractAudio(video: video)
+        assert(url: url, pathExtension: .m4a)
+        assert(url: url, trackCount: 1)
+        assertCompletedProgress()
     }
 
-    // MARK: Extract audio
+    func testExtractAudioFailNoAudio() async throws {
+        let video = try loadAsset(testData: .videoNoAudio)
 
-    func testExtractAudio() {
-        let expect = expectation(description: "expect")
-        guard let assetURL = loadTestAsset(name: FileName.video) else {
-            fatalError(ErrorMessage.failedToLoad)
+        assertInitialProgress()
+        do {
+            _ = try await mixalicious.extractAudio(video: video)
+            assertExpectedError()
+        } catch let error as MixaliciousError {
+            assert(error: error, expected: .audioTrackNotFound)
         }
-
-        let video = AVURLAsset(url: assetURL)
-
-        XCTAssertEqual(mixalicious.completionPercent,
-                       0.0,
-                       accuracy: 0.01)
-        mixalicious.extractAudio(video: video)
-            .sink(receiveCompletion: { subscribers in
-                switch subscribers {
-                case .failure:
-                    XCTFail(ErrorMessage.unexpected)
-
-                case .finished:
-                    expect.fulfill()
-                }
-            }) { [unowned self] url in
-                XCTAssertEqual(url.pathExtension, "m4a")
-                let asset = AVURLAsset(url: url)
-                XCTAssertEqual(asset.tracks.count, 1)
-                XCTAssertEqual(self.mixalicious.completionPercent,
-                               1.0,
-                               accuracy: 0.01)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
-    }
-
-    func testExtractAudioFailNoAudio() {
-        let expect = expectation(description: "expect")
-        guard let assetURL = loadTestAsset(name: FileName.videoOnly) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let video = AVURLAsset(url: assetURL)
-
-        XCTAssertEqual(mixalicious.completionPercent,
-                       0.0,
-                       accuracy: 0.01)
-        mixalicious.extractAudio(video: video)
-            .sink(receiveCompletion: { [unowned self] subscribers in
-                switch subscribers {
-                case let .failure(error):
-                    switch error {
-                    case .videoTrackNotFound:
-                        XCTAssertEqual(self.mixalicious.completionPercent,
-                                       0.0,
-                                       accuracy: 0.01)
-                        expect.fulfill()
-
-                    default:
-                        XCTFail(ErrorMessage.wrong)
-                    }
-
-                case .finished:
-                    XCTFail(ErrorMessage.expected)
-                }
-            }) { _ in
-                XCTFail(ErrorMessage.expected)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
     }
 }

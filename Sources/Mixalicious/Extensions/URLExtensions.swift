@@ -7,9 +7,11 @@ extension URL {
     /// - Parameter folderName: String containing folder name
     /// - Returns: URL of folder, or nil if it could not be created
     private static func getFolder(folderName: String) -> URL? {
-        // swiftlint:disable force_unwrapping
-        let documentDirectory = fileManager.urls(for: .documentDirectory,
-                                                 in: .userDomainMask).first!
+        guard let documentDirectory = fileManager.urls(for: .documentDirectory,
+                                                       in: .userDomainMask).first else {
+            return nil
+        }
+
         let fileURL = documentDirectory.appendingPathComponent(folderName)
 
         if !fileManager.fileExists(atPath: fileURL.path) {
@@ -34,10 +36,8 @@ extension URL {
             return nil
         }
 
-        let fileName = String(UUID().uuidString.prefix(8))
-
         let filePath = folder
-            .appendingPathComponent(fileName)
+            .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension(mediaType.fileExtension)
             .path
 
@@ -65,9 +65,11 @@ extension URL {
     /// Removes folder of provided MediaType. Used for testing purposes
     /// - Parameter mediaType: MediaType of folder to remove
     static func removeFolder(mediaType: MediaType) {
-        // swiftlint:disable force_unwrapping
-        let documentDirectory = fileManager.urls(for: .documentDirectory,
-                                                 in: .userDomainMask).first!
+        guard let documentDirectory = fileManager.urls(for: .documentDirectory,
+                                                       in: .userDomainMask).first else {
+            return
+        }
+
         let folderPath = documentDirectory.appendingPathComponent(mediaType.folderName).path
         if fileManager.fileExists(atPath: folderPath) {
             do {

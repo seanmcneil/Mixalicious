@@ -1,16 +1,6 @@
 import AVFoundation
-import Combine
 
 final class InsertAudio {
-    /// Supports sink usage with write operation
-    var cancelleables = Set<AnyCancellable>()
-
-    deinit {
-        cancelleables.forEach { cancelleable in
-            cancelleable.cancel()
-        }
-    }
-
     /// Adds the given audio asset to an existing video asset's audio track
     ///
     /// - Note: Video is not mutated
@@ -25,51 +15,36 @@ final class InsertAudio {
                 with audio: AVAsset,
                 mediaType: MediaType,
                 insertionTime: CMTime = .zero,
-                progress: Progress) -> AnyPublisher<URL, MixaliciousError> {
+                progress: Progress) async throws -> URL {
         precondition(audio.isAudioOnly)
         precondition(insertionTime >= .zero)
         precondition(insertionTime <= target.timeRange.end)
 
         let composition = AVMutableComposition()
-        var publishers = [AnyPublisher<AVMutableComposition, MixaliciousError>]()
 
         if target.hasVideoTrack {
-            let videoTrack = createCompositionTrack(mediaType: .video,
-                                                    asset: target,
-                                                    composition: composition)
-            publishers.append(videoTrack)
+            try await createCompositionTrack(mediaType: .video,
+                                             asset: target,
+                                             composition: composition)
         }
 
         if target.hasAudioTrack {
-            let sourceAudioTrack = createCompositionTrack(mediaType: .audio,
-                                                          asset: target,
-                                                          composition: composition)
-            publishers.append(sourceAudioTrack)
+            try await createCompositionTrack(mediaType: .audio,
+                                             asset: target,
+                                             composition: composition)
         }
 
-        let timeRange = CMTimeRangeMake(start: .zero,
-                                        duration: audio.duration)
+        let timeRange = CMTimeRange(duration: audio.duration)
 
-        let mergeAudioTrack = createCompositionTrack(mediaType: .audio,
-                                                     asset: audio,
-                                                     timeRange: timeRange,
-                                                     insertionTime: insertionTime,
-                                                     composition: composition)
-        publishers.append(mergeAudioTrack)
+        let mergeAudioTrack = try await createCompositionTrack(mediaType: .audio,
+                                                               asset: audio,
+                                                               timeRange: timeRange,
+                                                               insertionTime: insertionTime,
+                                                               composition: composition)
 
-        return Publishers.MergeMany(publishers)
-            .flatMap { [weak self] mergedComposition -> AnyPublisher<URL, MixaliciousError> in
-                guard let strongSelf = self else {
-                    return Fail(error: .outOfScope)
-                        .eraseToAnyPublisher()
-                }
-
-                return strongSelf.write(asset: mergedComposition,
-                                        mediaType: mediaType,
-                                        progress: progress)
-                    .eraseToAnyPublisher()
-            }
-            .eraseToAnyPublisher()
+        return try await write(asset: mergeAudioTrack,
+                               mediaType: mediaType,
+                               progress: progress)
     }
 }
 

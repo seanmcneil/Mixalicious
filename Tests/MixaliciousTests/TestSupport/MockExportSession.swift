@@ -1,6 +1,7 @@
-@testable import Mixalicious
 
 import AVFoundation
+
+@testable import Mixalicious
 
 final class MockExportSession: AssetExportSessionProtocol {
     var mockStatus: AVAssetExportSession.Status = .unknown

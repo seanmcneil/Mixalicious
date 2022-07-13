@@ -1,8 +1,7 @@
-@testable import Mixalicious
-
+import AVFoundation
 import XCTest
 
-import AVFoundation
+@testable import Mixalicious
 
 final class ProgressExtensionTests: XCTestCase {
     func testReset() {

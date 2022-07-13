@@ -1,80 +1,43 @@
-@testable import Mixalicious
 
 import AVFoundation
-import Combine
 import XCTest
+
+@testable import Mixalicious
 
 private class CreateComposition: CreateCompositionProtocol {}
 
-final class CreateCompositionProtocolTests: XCTestCase {
-    private var cancelleables = Set<AnyCancellable>()
+final class CreateCompositionProtocolTests: XCTestCase, TestSupport {
+    private let createComposition = CreateComposition()
 
     override func tearDown() {
-        URL.removeAllFiles(mediaType: .audio)
-        URL.removeAllFiles(mediaType: .video)
+        removeFiles()
     }
 
-    func testCreateCompositionMissingAudio() {
-        let createComposition = CreateComposition()
-        let mediaType = MediaType.audio
+    func testCreateCompositionMissingAudio() async throws {
         let asset = AVMutableComposition()
         let composition = AVMutableComposition()
-        let expect = expectation(description: "expect")
 
-        createComposition.createCompositionTrack(mediaType: mediaType,
-                                                 asset: asset,
-                                                 composition: composition)
-            .sink(receiveCompletion: { subscriber in
-                switch subscriber {
-                case let .failure(error):
-                    switch error {
-                    case .failedToCreateAudioTrack:
-                        expect.fulfill()
-
-                    default:
-                        XCTFail(ErrorMessage.wrong)
-                    }
-
-                case .finished:
-                    XCTFail(ErrorMessage.expected)
-                }
-            }) { _ in
-                XCTFail(ErrorMessage.expected)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
+        do {
+            _ = try await createComposition.createCompositionTrack(mediaType: .audio,
+                                                                   asset: asset,
+                                                                   composition: composition)
+            assertExpectedError()
+        } catch let error as MixaliciousError {
+            XCTAssertEqual(error, MixaliciousError.failedToCreateAudioTrack)
+        }
     }
 
-    func testCreateCompositionMissingVideo() {
-        let createComposition = CreateComposition()
-        let mediaType = MediaType.video
+    func testCreateCompositionMissingVideo() async throws {
         let asset = AVMutableComposition()
         let composition = AVMutableComposition()
-        let expect = expectation(description: "expect")
 
-        createComposition.createCompositionTrack(mediaType: mediaType,
-                                                 asset: asset,
-                                                 composition: composition)
-            .sink(receiveCompletion: { subscriber in
-                switch subscriber {
-                case let .failure(error):
-                    switch error {
-                    case .failedToCreateVideoTrack:
-                        expect.fulfill()
-
-                    default:
-                        XCTFail(ErrorMessage.wrong)
-                    }
-
-                case .finished:
-                    XCTFail(ErrorMessage.expected)
-                }
-            }) { _ in
-                XCTFail(ErrorMessage.expected)
-            }
-            .store(in: &cancelleables)
-
-        waitForExpectations(timeout: timeout, handler: nil)
+        do {
+            _ = try await createComposition.createCompositionTrack(mediaType: .video,
+                                                                   asset: asset,
+                                                                   composition: composition)
+            assertExpectedError()
+        } catch let error as MixaliciousError {
+            XCTAssertEqual(error, MixaliciousError.failedToCreateVideoTrack)
+        }
     }
 }

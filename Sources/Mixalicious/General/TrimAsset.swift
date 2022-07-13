@@ -1,16 +1,6 @@
 import AVFoundation
-import Combine
 
 final class TrimAsset {
-    /// Supports sink usage with write operation
-    var cancelleables = Set<AnyCancellable>()
-
-    deinit {
-        cancelleables.forEach { cancelleable in
-            cancelleable.cancel()
-        }
-    }
-
     /// Trims the provided asset. This works for audio and video
     ///
     /// - Note: Asset is not mutated
@@ -24,15 +14,15 @@ final class TrimAsset {
     func trim(asset: AVAsset,
               mediaType: MediaType,
               timeRange: CMTimeRange,
-              progress: Progress) -> AnyPublisher<URL, MixaliciousError> {
+              progress: Progress) async throws -> URL {
         precondition(timeRange.start >= .zero)
         precondition(timeRange.end <= asset.timeRange.end)
         precondition(timeRange.start <= timeRange.end)
 
-        return write(asset: asset,
-                     mediaType: mediaType,
-                     progress: progress,
-                     timeRange: timeRange)
+        return try await write(asset: asset,
+                               mediaType: mediaType,
+                               progress: progress,
+                               timeRange: timeRange)
     }
 }
 

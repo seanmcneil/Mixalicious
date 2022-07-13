@@ -1,101 +1,57 @@
-@testable import Mixalicious
-
+import AVFoundation
 import XCTest
 
-import AVFoundation
+@testable import Mixalicious
 
-final class AVAssetExtensionTests: XCTestCase {
-    private let documentDirectory = FileManager.default.urls(for: .documentDirectory,
-                                                             in: .userDomainMask).first!
-
-    func testIsAudioOnly() {
-        guard let url = loadTestAsset(name: FileName.audio) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+final class AVAssetExtensionTests: XCTestCase, TestSupport {
+    func testIsAudioOnly() throws {
+        let asset = try loadAsset(testData: .audio)
         XCTAssertTrue(asset.isAudioOnly)
     }
 
-    func testIsAudioOnlyFail() {
-        guard let url = loadTestAsset(name: FileName.video) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+    func testIsAudioOnlyFail() throws {
+        let asset = try loadAsset(testData: .videoWithAudio)
         XCTAssertFalse(asset.isAudioOnly)
     }
 
-    func testIsAudioAndVideoPresent() {
-        guard let url = loadTestAsset(name: FileName.video) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+    func testIsAudioAndVideoPresent() throws {
+        let asset = try loadAsset(testData: .videoWithAudio)
         XCTAssertTrue(asset.isAudioAndVideoPresent)
     }
 
-    func testIsAudioAndVideoPresentFail() {
-        guard let url = loadTestAsset(name: FileName.videoOnly) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+    func testIsAudioAndVideoPresentFail() throws {
+        let asset = try loadAsset(testData: .videoNoAudio)
         XCTAssertFalse(asset.isAudioAndVideoPresent)
     }
 
-    func testHasAudioTrack() {
-        guard let url = loadTestAsset(name: FileName.video) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+    func testHasAudioTrack() throws {
+        let asset = try loadAsset(testData: .videoWithAudio)
         XCTAssertTrue(asset.hasAudioTrack)
     }
 
-    func testHasAudioTrackFail() {
-        guard let url = loadTestAsset(name: FileName.videoOnly) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+    func testHasAudioTrackFail() throws {
+        let asset = try loadAsset(testData: .videoNoAudio)
         XCTAssertFalse(asset.hasAudioTrack)
     }
 
-    func testHasVideoTrack() {
-        guard let url = loadTestAsset(name: FileName.video) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+    func testHasVideoTrack() throws {
+        let asset = try loadAsset(testData: .videoWithAudio)
         XCTAssertTrue(asset.hasVideoTrack)
     }
 
-    func testHasVideoTrackFail() {
-        guard let url = loadTestAsset(name: FileName.audio) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+    func testHasVideoTrackFail() throws {
+        let asset = try loadAsset(testData: .audio)
         XCTAssertFalse(asset.hasVideoTrack)
     }
 
-    func testTimeRangeAudio() {
-        guard let url = loadTestAsset(name: FileName.audio) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+    func testTimeRangeAudio() throws {
+        let asset = try loadAsset(testData: .audio)
         XCTAssertEqual(asset.timeRange,
                        CMTimeRange(start: .zero, duration: asset.duration))
     }
 
-    func testTimeRangeVideo() {
-        guard let url = loadTestAsset(name: FileName.video) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+    func testTimeRangeVideo() throws {
+        let asset = try loadAsset(testData: .videoWithAudio)
         XCTAssertEqual(asset.timeRange,
                        CMTimeRange(start: .zero, duration: asset.duration))
     }

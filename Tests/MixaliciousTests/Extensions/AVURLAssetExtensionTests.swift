@@ -1,45 +1,26 @@
-@testable import Mixalicious
-
+import AVFoundation
 import XCTest
 
-import AVFoundation
+@testable import Mixalicious
 
-final class AVURLAssetExtensionTests: XCTestCase {
-    // MARK: Public properties
-
-    func testAudioSize() {
-        guard let url = loadTestAsset(name: FileName.audio) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+final class AVURLAssetExtensionTests: XCTestCase, TestSupport {
+    func testAudioSize() throws {
+        let asset = try loadAsset(testData: .audio)
         XCTAssertEqual(asset.size, "305 KB")
     }
 
-    func testVideoSize() {
-        guard let url = loadTestAsset(name: FileName.video) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+    func testVideoSize() throws {
+        let asset = try loadAsset(testData: .videoWithAudio)
         XCTAssertEqual(asset.size, "4.5 MB")
     }
 
-    func testAudioTime() {
-        guard let url = loadTestAsset(name: FileName.audio) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+    func testAudioTime() throws {
+        let asset = try loadAsset(testData: .audio)
         XCTAssertEqual(asset.time, "19")
     }
 
-    func testVideoTime() {
-        guard let url = loadTestAsset(name: FileName.video) else {
-            fatalError(ErrorMessage.failedToLoad)
-        }
-
-        let asset = AVURLAsset(url: url)
+    func testVideoTime() throws {
+        let asset = try loadAsset(testData: .videoWithAudio)
         XCTAssertEqual(asset.time, "20")
     }
 }

@@ -1,20 +1,19 @@
 import AVFoundation
-import Combine
 import Foundation
 
 final class SessionWriter {
     /// Carries out the export operation and updates progress
     ///
+    /// The `mediaType` property is to support future functionality
+    ///
     /// - Parameters:
     ///   - session: ExportSession performing write
-    ///   - mediaType: MediaType to export
     ///   - outputURL: URL for where to write output
     ///   - progress: Progress used to track export process
     /// - Returns: URL for exported asset, or error if process failed
     func export(session: AssetExportSessionProtocol,
-                mediaType _: MediaType,
                 outputURL: URL,
-                progress: Progress) -> AnyPublisher<URL, MixaliciousError> {
+                progress: Progress) async throws -> URL {
         let totalUnitCount = progress.totalUnitCount
         // This timer is responsible for updating the progress object
         Timer.scheduledTimer(withTimeInterval: 0.1,
@@ -25,28 +24,22 @@ final class SessionWriter {
             progress.completedUnitCount = completedUnitCount
         }
 
-        return Future<URL, MixaliciousError> { promise in
-            DispatchQueue.global(qos: .utility).async {
-                // Safety check to ensure no file is present
-                // Due to how names are generated, this is unlikely to occur
-                try? FileManager.default.removeItem(at: outputURL)
+        try? FileManager.default.removeItem(at: outputURL)
 
-                session.exportAsynchronously {
-                    assert(!Thread.isMainThread)
+        return try await withCheckedThrowingContinuation { continuation in
+            session.exportAsynchronously {
+                assert(!Thread.isMainThread)
 
-                    switch session.status {
-                    case .completed:
-                        progress.completedUnitCount = totalUnitCount
-                        promise(.success(outputURL))
+                switch session.status {
+                case .completed:
+                    progress.completedUnitCount = totalUnitCount
+                    continuation.resume(returning: outputURL)
 
-                    default:
-                        progress.reset()
-                        promise(.failure(session.status.mixaliciousError))
-                    }
+                default:
+                    progress.reset()
+                    continuation.resume(throwing: session.status.mixaliciousError)
                 }
             }
         }
-        .subscribe(on: DispatchQueue.global(qos: .default))
-        .eraseToAnyPublisher()
     }
 }
